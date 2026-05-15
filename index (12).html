@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guess That Context 📸</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Righteous&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --accent: #f5c542;
+    --accent2: #ff6b35;
+    --text: #f0f0f0;
+    --muted: #888;
+    --green: #4caf7d;
+    --red: #e05555;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  h1, h2, h3, .logo { font-family: 'Righteous', cursive; }
+
+  /* SCREENS */
+  .screen { display: none; min-height: 100vh; padding: 24px; }
+  .screen.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+  /* HOME */
+  #screen-home {
+    background: radial-gradient(ellipse at 60% 20%, #1a1200 0%, #0d0d0d 60%);
+  }
+  .logo-wrap { text-align: center; margin-bottom: 48px; }
+  .logo { font-size: 3rem; color: var(--accent); letter-spacing: 2px; line-height: 1; }
+  .logo span { color: var(--accent2); }
+  .logo-sub { color: var(--muted); font-size: 1rem; margin-top: 8px; letter-spacing: 3px; text-transform: uppercase; }
+  .home-btns { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 340px; }
+  .btn {
+    padding: 16px 28px;
+    border-radius: var(--radius);
+    border: none;
+    font-size: 1.05rem;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    letter-spacing: 0.5px;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .btn:active { transform: translateY(0); }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-accent2 { background: var(--accent2); color: #fff; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-red { background: var(--red); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 0.9rem; }
+  .btn-sm { padding: 10px 18px; font-size: 0.9rem; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* CARD */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    width: 100%;
+    max-width: 480px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 1.4rem; margin-bottom: 20px; color: var(--accent); }
+
+  /* INPUTS */
+  input[type=text], input[type=number], select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 13px 16px;
+    font-size: 1rem;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 12px;
+  }
+  input[type=text]:focus, select:focus { border-color: var(--accent); }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* PROGRESS BAR */
+  .progress-wrap { width: 100%; background: var(--surface2); border-radius: 99px; height: 6px; margin: 12px 0; }
+  .progress-bar { height: 6px; background: var(--accent); border-radius: 99px; transition: width 0.3s; }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 36px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 16px;
+  }
+  .upload-zone:hover { border-color: var(--accent); background: rgba(245,197,66,0.04); }
+  .upload-zone .icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .upload-zone p { color: var(--muted); font-size: 0.95rem; }
+  #folder-input { display: none; }
+
+  /* FOLDER LIST */
+  .folder-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--surface2);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .folder-item:hover { background: #222; }
+  .folder-item.selected { border-color: var(--accent); }
+  .folder-icon { font-size: 1.6rem; }
+  .folder-info { flex: 1; }
+  .folder-name { font-weight: 700; font-size: 1rem; }
+  .folder-count { color: var(--muted); font-size: 0.85rem; }
+
+  /* LOBBY */
+  .player-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .player-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 8px 16px;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: popIn 0.3s ease;
+  }
+  @keyframes popIn { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  /* QR */
+  #qr-container { background: #fff; padding: 12px; border-radius: 12px; display: inline-block; margin: 16px 0; }
+
+  /* GAME HOST */
+  #screen-host-game { background: var(--bg); padding: 20px; }
+  .game-header { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 800px; margin-bottom: 20px; }
+  .round-badge { background: var(--surface2); border-radius: 99px; padding: 6px 16px; font-size: 0.9rem; color: var(--muted); }
+  .photo-frame {
+    width: 100%;
+    max-width: 600px;
+    aspect-ratio: 4/3;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .photo-frame img { width: 100%; height: 100%; object-fit: cover; }
+  .question-label { font-size: 1.3rem; font-weight: 700; text-align: center; margin-bottom: 8px; }
+  .answer-count { color: var(--muted); font-size: 0.9rem; text-align: center; margin-bottom: 20px; }
+
+  /* ANSWERS PANEL */
+  .answers-panel { width: 100%; max-width: 700px; }
+  .answer-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    animation: slideIn 0.25s ease;
+  }
+  @keyframes slideIn { from { transform: translateX(-12px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .answer-player { font-size: 1.4rem; }
+  .answer-text { flex: 1; font-size: 1.05rem; }
+  .answer-name { font-size: 0.8rem; color: var(--muted); }
+  .point-btns { display: flex; gap: 8px; }
+  .awarded { background: rgba(76,175,125,0.1); border-color: var(--green); }
+
+  /* SCOREBOARD */
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--surface2);
+    border-radius: 10px;
+    margin-bottom: 8px;
+  }
+  .score-rank { font-family: 'Righteous', cursive; font-size: 1.1rem; color: var(--accent); width: 28px; }
+  .score-emoji { font-size: 1.4rem; }
+  .score-name { flex: 1; font-weight: 600; }
+  .score-pts { font-family: 'Righteous', cursive; font-size: 1.2rem; color: var(--accent); }
+
+  /* PLAYER SCREENS */
+  #screen-player-join {
+    background: radial-gradient(ellipse at 30% 80%, #0a1a0a 0%, #0d0d0d 60%);
+  }
+  .emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .emoji-opt {
+    font-size: 1.6rem;
+    padding: 8px;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background: var(--surface2);
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  .emoji-opt:hover { transform: scale(1.1); }
+  .emoji-opt.selected { border-color: var(--accent); background: rgba(245,197,66,0.1); }
+
+  /* PLAYER GAME */
+  #screen-player-game { justify-content: flex-start; padding-top: 32px; }
+  .player-photo {
+    width: 100%;
+    max-width: 440px;
+    aspect-ratio: 4/3;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .player-photo img { width: 100%; height: 100%; object-fit: cover; }
+  textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 14px 16px;
+    font-size: 1rem;
+    font-family: 'DM Sans', sans-serif;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 12px;
+    max-width: 440px;
+    width: 100%;
+  }
+  textarea:focus { border-color: var(--accent); }
+
+  /* WAITING STATE */
+  .waiting-anim {
+    display: flex; gap: 6px; justify-content: center; margin: 24px 0;
+  }
+  .dot {
+    width: 10px; height: 10px; background: var(--accent);
+    border-radius: 50%; animation: bounce 1.2s infinite;
+  }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-12px)} }
+
+  /* RESULT DISPLAY (player side) */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 12px;
+    max-width: 440px;
+    width: 100%;
+  }
+  .result-card.correct { border-color: var(--green); background: rgba(76,175,125,0.08); }
+  .result-card.wrong { border-color: var(--border); }
+
+  /* STATUS BAR */
+  .status-bar {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; position: sticky; top: 0; z-index: 10;
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* MISC */
+  .divider { width: 100%; height: 1px; background: var(--border); margin: 20px 0; }
+  .text-muted { color: var(--muted); font-size: 0.9rem; }
+  .text-center { text-align: center; }
+  .gap { margin-bottom: 12px; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .room-code-display {
+    font-family: 'Righteous', cursive;
+    font-size: 3rem;
+    color: var(--accent);
+    letter-spacing: 8px;
+    text-align: center;
+    margin: 8px 0;
+  }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 99px; padding: 12px 24px; font-size: 0.95rem;
+    z-index: 999; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .hidden { display: none !important; }
+
+  /* Upload progress */
+  .upload-status { font-size: 0.9rem; color: var(--muted); text-align: center; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════ HOME ═══════════════ -->
+<div class="screen active" id="screen-home">
+  <div class="logo-wrap">
+    <div class="logo">Guess That<br><span>Context</span> 📸</div>
+    <div class="logo-sub">The Photo Party Game</div>
+  </div>
+  <div class="home-btns">
+    <button class="btn btn-primary" onclick="showScreen('screen-host-setup')">🎮 Host a Game</button>
+    <button class="btn btn-secondary" onclick="showScreen('screen-player-join')">🙋 Join a Game</button>
+  </div>
+</div>
+
+<!-- ═══════════════ HOST SETUP ═══════════════ -->
+<div class="screen" id="screen-host-setup">
+  <div class="card">
+    <h2>📁 Photo Folders</h2>
+    <p class="text-muted gap">Upload a folder of photos once — they'll be saved to Firebase forever.</p>
+
+    <div class="upload-zone" onclick="document.getElementById('folder-input').click()">
+      <div class="icon">📂</div>
+      <p>Click to upload a folder of photos</p>
+      <p style="font-size:0.8rem;margin-top:6px;color:#555">Supports JPG, PNG, GIF, WEBP</p>
+    </div>
+    <input type="file" id="folder-input" webkitdirectory multiple accept="image/*">
+    
+    <div id="upload-progress-wrap" class="hidden">
+      <div class="progress-wrap"><div class="progress-bar" id="upload-progress-bar" style="width:0%"></div></div>
+      <div class="upload-status" id="upload-status-text">Uploading...</div>
+    </div>
+  </div>
+
+  <div class="card" id="folders-card">
+    <h2>📋 Saved Folders</h2>
+    <div id="folder-list"><div class="text-muted">Loading folders...</div></div>
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary" id="start-lobby-btn" disabled onclick="startLobby()">Start Game →</button>
+    </div>
+  </div>
+
+  <button class="btn btn-ghost btn-sm" onclick="showScreen('screen-home')">← Back</button>
+</div>
+
+<!-- ═══════════════ HOST LOBBY ═══════════════ -->
+<div class="screen" id="screen-host-lobby">
+  <div class="card" style="max-width:520px;text-align:center">
+    <h2>🎉 Lobby</h2>
+    <p class="text-muted">Share this code or QR with players</p>
+    <div class="room-code-display" id="lobby-code">----</div>
+    <div id="qr-container"><div id="qr-code"></div></div>
+    <p class="text-muted" style="font-size:0.8rem;margin-top:8px">Players go to: <strong id="join-url-display"></strong></p>
+  </div>
+
+  <div class="card" style="max-width:520px">
+    <h2>👥 Players (<span id="player-count">0</span>)</h2>
+    <div class="player-grid" id="lobby-players"></div>
+    <div class="divider"></div>
+    <button class="btn btn-primary" id="begin-game-btn" disabled onclick="beginGame()">Begin Game 🚀</button>
+    <p class="text-muted" style="font-size:0.8rem;margin-top:8px">Need at least 1 player</p>
+  </div>
+
+  <button class="btn btn-ghost btn-sm" onclick="endGame()">End & Exit</button>
+</div>
+
+<!-- ═══════════════ HOST GAME ═══════════════ -->
+<div class="screen" id="screen-host-game" style="align-items:center;">
+  <div class="status-bar">
+    <div class="status-dot"></div>
+    <span style="font-size:0.9rem;">Room: <strong id="hg-room-code">----</strong></span>
+    <span class="round-badge" id="hg-round-badge">Round 1</span>
+    <span style="flex:1"></span>
+    <button class="btn btn-ghost btn-sm" onclick="endGame()">End Game</button>
+  </div>
+
+  <div style="width:100%;max-width:700px;padding:16px;display:flex;flex-direction:column;align-items:center;">
+    <!-- PHASE: SHOW PHOTO -->
+    <div id="hg-phase-photo" style="width:100%;display:flex;flex-direction:column;align-items:center;">
+      <div class="photo-frame">
+        <img id="hg-photo" src="" alt="Current photo">
+      </div>
+      <div class="question-label">💬 What is the context of this photo?</div>
+      <div class="answer-count" id="hg-answer-count">Waiting for answers... (0/0)</div>
+      <button class="btn btn-primary" id="hg-show-answers-btn" onclick="hostShowAnswers()">Show Answers</button>
+    </div>
+
+    <!-- PHASE: SHOW ANSWERS -->
+    <div id="hg-phase-answers" class="hidden" style="width:100%;">
+      <div class="photo-frame" style="max-width:360px;margin:0 auto 20px;">
+        <img id="hg-photo2" src="" alt="Current photo">
+      </div>
+      <div class="answers-panel" id="hg-answers-panel"></div>
+      <div class="row" style="margin-top:16px;justify-content:center;gap:12px;flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="hostShowScoreboard()">📊 Scoreboard</button>
+        <button class="btn btn-primary" onclick="hostNextRound()" id="hg-next-btn">Next Round →</button>
+        <button class="btn btn-accent2" onclick="hostEndRounds()">🏁 Final Scores</button>
+      </div>
+    </div>
+
+    <!-- PHASE: SCOREBOARD -->
+    <div id="hg-phase-scoreboard" class="hidden" style="width:100%;max-width:500px;">
+      <h2 style="font-family:'Righteous',cursive;text-align:center;margin-bottom:20px;color:var(--accent);">📊 Scoreboard</h2>
+      <div id="hg-scoreboard-list"></div>
+      <div class="row" style="margin-top:20px;justify-content:center;gap:12px;">
+        <button class="btn btn-secondary" onclick="hostBackToAnswers()">← Back</button>
+        <button class="btn btn-primary" onclick="hostNextRound()">Next Round →</button>
+        <button class="btn btn-accent2" onclick="hostEndRounds()">🏁 Final Scores</button>
+      </div>
+    </div>
+
+    <!-- PHASE: FINAL -->
+    <div id="hg-phase-final" class="hidden" style="width:100%;max-width:500px;">
+      <h2 style="font-family:'Righteous',cursive;text-align:center;margin-bottom:4px;color:var(--accent);font-size:2rem;">🏆 Final Scores!</h2>
+      <p class="text-muted text-center gap">Game over — thanks for playing!</p>
+      <div id="hg-final-list"></div>
+      <button class="btn btn-primary" style="margin-top:20px;width:100%;" onclick="endGame()">🎮 New Game</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ PLAYER JOIN ═══════════════ -->
+<div class="screen" id="screen-player-join">
+  <div class="card" style="max-width:420px;">
+    <h2>🙋 Join Game</h2>
+    
+    <label>Room Code</label>
+    <input type="text" id="pj-code" placeholder="e.g. ABC123" maxlength="6" style="text-transform:uppercase;font-family:'Righteous',cursive;font-size:1.4rem;letter-spacing:6px;">
+    
+    <label>Your Name</label>
+    <input type="text" id="pj-name" placeholder="Your name" maxlength="20">
+
+    <label>Choose an Emoji</label>
+    <div class="emoji-grid" id="emoji-grid"></div>
+
+    <button class="btn btn-green" onclick="joinGame()">Join Game 🎮</button>
+  </div>
+  <button class="btn btn-ghost btn-sm" onclick="showScreen('screen-home')">← Back</button>
+</div>
+
+<!-- ═══════════════ PLAYER WAITING ═══════════════ -->
+<div class="screen" id="screen-player-waiting">
+  <div class="text-center">
+    <div style="font-size:3rem;margin-bottom:16px;" id="pw-emoji">😊</div>
+    <h2 style="font-family:'Righteous',cursive;margin-bottom:8px;">You're In!</h2>
+    <p class="text-muted">Waiting for the host to start...</p>
+    <div class="waiting-anim"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <p class="text-muted" style="font-size:0.85rem;" id="pw-room">Room: ----</p>
+  </div>
+</div>
+
+<!-- ═══════════════ PLAYER GAME ═══════════════ -->
+<div class="screen" id="screen-player-game">
+  <div class="status-bar">
+    <div class="status-dot"></div>
+    <span id="pg-player-name" style="font-size:0.9rem;"></span>
+    <span style="flex:1"></span>
+    <span class="round-badge" id="pg-round-badge">Round 1</span>
+  </div>
+
+  <div style="width:100%;max-width:440px;padding:16px;display:flex;flex-direction:column;align-items:center;">
+    <!-- PHASE: ANSWER -->
+    <div id="pg-phase-answer" style="width:100%;">
+      <div class="player-photo">
+        <img id="pg-photo" src="" alt="Photo">
+      </div>
+      <div class="question-label" style="margin-bottom:12px;">💬 What is the context of this photo?</div>
+      <textarea id="pg-answer-input" rows="3" placeholder="Type your answer here..."></textarea>
+      <button class="btn btn-primary" style="width:100%;" onclick="playerSubmitAnswer()" id="pg-submit-btn">Submit Answer ✓</button>
+      <div id="pg-submitted-msg" class="hidden text-center" style="margin-top:12px;">
+        <div style="color:var(--green);font-weight:700;">✓ Answer submitted!</div>
+        <div class="waiting-anim"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+        <p class="text-muted">Waiting for host to reveal...</p>
+      </div>
+    </div>
+
+    <!-- PHASE: RESULTS -->
+    <div id="pg-phase-results" class="hidden" style="width:100%;">
+      <h3 style="text-align:center;margin-bottom:16px;font-family:'Righteous',cursive;">Answers Revealed!</h3>
+      <div id="pg-results-list"></div>
+      <div class="waiting-anim"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <p class="text-muted text-center">Waiting for next round...</p>
+    </div>
+
+    <!-- PHASE: FINAL -->
+    <div id="pg-phase-final" class="hidden" style="width:100%;text-align:center;">
+      <div style="font-size:3rem;margin-bottom:12px;">🏆</div>
+      <h2 style="font-family:'Righteous',cursive;color:var(--accent);margin-bottom:8px;">Game Over!</h2>
+      <div id="pg-final-list" style="margin-top:16px;"></div>
+      <button class="btn btn-secondary" style="margin-top:24px;width:100%;" onclick="showScreen('screen-home')">← Home</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  FIREBASE INIT
+// ═══════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyCWAYiwHBVW22azRJjsZhORG_CdloLO7nk",
+  authDomain: "guess-that-context.firebaseapp.com",
+  projectId: "guess-that-context",
+  storageBucket: "guess-that-context.firebasestorage.app",
+  messagingSenderId: "33823813361",
+  appId: "1:33823813361:web:805d282b84226fe0244350",
+  measurementId: "G-8EB4TNC134",
+  databaseURL: "https://guess-that-context-default-rtdb.firebaseio.com"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ═══════════════════════════════════════════════
+//  GLOBALS
+// ═══════════════════════════════════════════════
+let selectedFolderId = null;
+let currentRoomCode = null;
+let currentRoundIndex = 0;
+let shuffledPhotos = [];
+let playerId = null;
+let playerEmoji = '😊';
+let playerName = '';
+let gameListeners = [];
+let isHost = false;
+
+const EMOJIS = ['😊','😎','🤩','🥳','🦊','🐼','🦁','🐸','🦄','🐙','🍕','🎯','🔥','⚡','💎','🎸','🚀','🌈','🍩','🎭','👾','🤖','🧙','🏆','🎲','🃏'];
+
+// ═══════════════════════════════════════════════
+//  SCREEN NAVIGATION
+// ═══════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ═══════════════════════════════════════════════
+//  EMOJI GRID
+// ═══════════════════════════════════════════════
+function buildEmojiGrid() {
+  const grid = document.getElementById('emoji-grid');
+  grid.innerHTML = '';
+  EMOJIS.forEach(e => {
+    const div = document.createElement('div');
+    div.className = 'emoji-opt';
+    div.textContent = e;
+    div.onclick = () => {
+      document.querySelectorAll('.emoji-opt').forEach(x => x.classList.remove('selected'));
+      div.classList.add('selected');
+      playerEmoji = e;
+    };
+    grid.appendChild(div);
+  });
+  // default select first
+  grid.firstChild.classList.add('selected');
+  playerEmoji = EMOJIS[0];
+}
+buildEmojiGrid();
+
+// ═══════════════════════════════════════════════
+//  HOST: FOLDER UPLOAD
+// ═══════════════════════════════════════════════
+// Convert a File to a base64 data URL, resized to max 800px to keep DB size small
+function fileToBase64(file, maxPx = 800) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > maxPx || h > maxPx) {
+          if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+          else { w = Math.round(w * maxPx / h); h = maxPx; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+document.getElementById('folder-input').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+  if (!files.length) { toast('No images found in that folder'); return; }
+
+  const folderName = files[0].webkitRelativePath.split('/')[0] || 'Folder ' + Date.now();
+  const folderId = folderName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now();
+
+  document.getElementById('upload-progress-wrap').classList.remove('hidden');
+  const progressBar = document.getElementById('upload-progress-bar');
+  const statusText = document.getElementById('upload-status-text');
+
+  // Firebase Realtime DB has a 16MB per-node limit.
+  // We save each photo as its own node under folders/{folderId}/photos/{i}
+  // so we're never hitting one giant node limit.
+  const photoMeta = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    statusText.textContent = `Processing ${i+1}/${files.length}: ${file.name}`;
+    progressBar.style.width = ((i / files.length) * 100) + '%';
+
+    try {
+      const base64 = await fileToBase64(file);
+      // Store each photo separately to avoid single-node size limits
+      await db.ref(`folders/${folderId}/photos/${i}`).set({ name: file.name, url: base64 });
+      photoMeta.push({ name: file.name, index: i });
+    } catch(err) {
+      console.error('Error processing image', file.name, err);
+      toast('Skipped ' + file.name + ' (error)');
+    }
+  }
+
+  progressBar.style.width = '100%';
+  statusText.textContent = `✓ Saved ${photoMeta.length} photos`;
+
+  // Save folder metadata (without the actual image data)
+  await db.ref(`folders/${folderId}/meta`).set({
+    name: folderName,
+    count: photoMeta.length,
+    createdAt: Date.now()
+  });
+
+  toast(`✓ Folder "${folderName}" saved!`);
+  loadFolders();
+  e.target.value = '';
+  setTimeout(() => document.getElementById('upload-progress-wrap').classList.add('hidden'), 2500);
+});
+
+// ═══════════════════════════════════════════════
+//  HOST: LOAD FOLDERS
+// ═══════════════════════════════════════════════
+async function loadFolders() {
+  const listEl = document.getElementById('folder-list');
+  listEl.innerHTML = '<div class="text-muted">Loading...</div>';
+  
+  try {
+    const snap = await db.ref('folders').once('value');
+    const data = snap.val();
+    listEl.innerHTML = '';
+
+    if (!data) {
+      listEl.innerHTML = '<div class="text-muted">No folders yet. Upload one above!</div>';
+      return;
+    }
+
+    Object.entries(data).forEach(([id, folder]) => {
+      const meta = folder.meta || folder; // support both old and new structure
+      const div = document.createElement('div');
+      div.className = 'folder-item';
+      div.innerHTML = `
+        <div class="folder-icon">📁</div>
+        <div class="folder-info">
+          <div class="folder-name">${meta.name}</div>
+          <div class="folder-count">${meta.count} photos</div>
+        </div>
+        <div style="color:var(--accent);font-size:1.2rem;">›</div>
+      `;
+      div.onclick = () => {
+        document.querySelectorAll('.folder-item').forEach(x => x.classList.remove('selected'));
+        div.classList.add('selected');
+        selectedFolderId = id;
+        document.getElementById('start-lobby-btn').disabled = false;
+      };
+      listEl.appendChild(div);
+    });
+  } catch(err) {
+    listEl.innerHTML = '<div style="color:var(--red)">Error loading folders: ' + err.message + '</div>';
+  }
+}
+
+// Load folders when host setup screen is shown
+document.getElementById('screen-host-setup').addEventListener('transitionend', loadFolders);
+// Also load on DOMContentLoaded
+window.addEventListener('load', loadFolders);
+
+// ═══════════════════════════════════════════════
+//  HOST: START LOBBY
+// ═══════════════════════════════════════════════
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+async function startLobby() {
+  if (!selectedFolderId) { toast('Pick a folder first!'); return; }
+
+  const snap = await db.ref(`folders/${selectedFolderId}`).once('value');
+  const folderData = snap.val();
+  if (!folderData) { toast('Folder not found'); return; }
+
+  const meta = folderData.meta || folderData;
+  const photosRaw = folderData.photos || {};
+
+  // Convert photos object to array
+  const photosArray = Object.values(photosRaw).filter(p => p && p.url);
+  if (!photosArray.length) { toast('No photos found in this folder'); return; }
+
+  currentRoomCode = generateRoomCode();
+  isHost = true;
+
+  // Shuffle photos
+  shuffledPhotos = [...photosArray].sort(() => Math.random() - 0.5);
+
+  // Write game state to DB (photos included — they're already in DB, just reference them)
+  await db.ref(`rooms/${currentRoomCode}`).set({
+    status: 'lobby',
+    folderId: selectedFolderId,
+    folderName: meta.name,
+    photos: shuffledPhotos,
+    currentRound: 0,
+    phase: 'lobby',
+    scores: {},
+    createdAt: Date.now()
+  });
+
+  // Show lobby screen
+  document.getElementById('lobby-code').textContent = currentRoomCode;
+  document.getElementById('hg-room-code').textContent = currentRoomCode;
+
+  // QR code
+  document.getElementById('qr-code').innerHTML = '';
+  const joinURL = `${window.location.href.split('?')[0]}?join=${currentRoomCode}`;
+  document.getElementById('join-url-display').textContent = window.location.hostname;
+  new QRCode(document.getElementById('qr-code'), { text: joinURL, width: 150, height: 150, colorDark: '#000', colorLight: '#fff' });
+
+  showScreen('screen-host-lobby');
+  listenLobbyPlayers();
+}
+
+// ═══════════════════════════════════════════════
+//  HOST: LISTEN FOR PLAYERS
+// ═══════════════════════════════════════════════
+function listenLobbyPlayers() {
+  const ref = db.ref(`rooms/${currentRoomCode}/players`);
+  const handler = ref.on('value', snap => {
+    const players = snap.val() || {};
+    const playerEls = document.getElementById('lobby-players');
+    const countEl = document.getElementById('player-count');
+    const beginBtn = document.getElementById('begin-game-btn');
+
+    const count = Object.keys(players).length;
+    countEl.textContent = count;
+    beginBtn.disabled = count < 1;
+
+    playerEls.innerHTML = '';
+    Object.values(players).forEach(p => {
+      const chip = document.createElement('div');
+      chip.className = 'player-chip';
+      chip.innerHTML = `<span>${p.emoji}</span><span>${p.name}</span>`;
+      playerEls.appendChild(chip);
+    });
+  });
+  gameListeners.push({ ref, handler });
+}
+
+// ═══════════════════════════════════════════════
+//  HOST: BEGIN GAME
+// ═══════════════════════════════════════════════
+async function beginGame() {
+  currentRoundIndex = 0;
+  await db.ref(`rooms/${currentRoomCode}`).update({
+    status: 'playing',
+    phase: 'answering',
+    currentRound: 0
+  });
+  await db.ref(`rooms/${currentRoomCode}/answers`).remove();
+  loadHostRound();
+  showScreen('screen-host-game');
+  listenForAnswers();
+}
+
+function loadHostRound() {
+  const photo = shuffledPhotos[currentRoundIndex];
+  document.getElementById('hg-photo').src = photo.url;
+  document.getElementById('hg-photo2').src = photo.url;
+  document.getElementById('hg-round-badge').textContent = `Round ${currentRoundIndex + 1}/${shuffledPhotos.length}`;
+  document.getElementById('hg-answer-count').textContent = 'Waiting for answers... (0/?)';
+  document.getElementById('hg-answers-panel').innerHTML = '';
+
+  // Show photo phase
+  document.getElementById('hg-phase-photo').style.display = '';
+  document.getElementById('hg-phase-answers').classList.add('hidden');
+  document.getElementById('hg-phase-scoreboard').classList.add('hidden');
+  document.getElementById('hg-phase-final').classList.add('hidden');
+}
+
+// ═══════════════════════════════════════════════
+//  HOST: LISTEN FOR ANSWERS
+// ═══════════════════════════════════════════════
+function listenForAnswers() {
+  const ref = db.ref(`rooms/${currentRoomCode}/answers/${currentRoundIndex}`);
+  const handler = ref.on('value', snap => {
+    const answers = snap.val() || {};
+    const count = Object.keys(answers).length;
+    document.getElementById('hg-answer-count').textContent = `Answers received: ${count}`;
+  });
+  gameListeners.push({ ref, handler });
+}
+
+// ═══════════════════════════════════════════════
+//  HOST: SHOW ANSWERS
+// ═══════════════════════════════════════════════
+async function hostShowAnswers() {
+  await db.ref(`rooms/${currentRoomCode}`).update({ phase: 'reveal' });
+
+  const snap = await db.ref(`rooms/${currentRoomCode}/answers/${currentRoundIndex}`).once('value');
+  const answers = snap.val() || {};
+
+  const pSnap = await db.ref(`rooms/${currentRoomCode}/players`).once('value');
+  const players = pSnap.val() || {};
+
+  const panel = document.getElementById('hg-answers-panel');
+  panel.innerHTML = '';
+
+  Object.entries(answers).forEach(([pid, ans]) => {
+    const player = players[pid] || { name: 'Unknown', emoji: '❓' };
+    const card = document.createElement('div');
+    card.className = 'answer-card';
+    card.id = `answer-card-${pid}`;
+    card.innerHTML = `
+      <div class="answer-player">${player.emoji}</div>
+      <div style="flex:1;">
+        <div class="answer-text">${ans.text || '<em style="color:var(--muted)">No answer</em>'}</div>
+        <div class="answer-name">${player.name}</div>
+      </div>
+      <div class="point-btns">
+        <button class="btn btn-green btn-sm" onclick="awardPoint('${pid}', true, this)">✓ Point</button>
+        <button class="btn btn-ghost btn-sm" onclick="awardPoint('${pid}', false, this)">✗</button>
+      </div>
+    `;
+    panel.appendChild(card);
+  });
+
+  if (Object.keys(answers).length === 0) {
+    panel.innerHTML = '<div class="text-muted text-center" style="padding:24px;">No answers submitted this round.</div>';
+  }
+
+  document.getElementById('hg-phase-photo').style.display = 'none';
+  document.getElementById('hg-phase-answers').classList.remove('hidden');
+}
+
+// ═══════════════════════════════════════════════
+//  HOST: AWARD POINT
+// ═══════════════════════════════════════════════
+async function awardPoint(pid, give, btn) {
+  const card = document.getElementById(`answer-card-${pid}`);
+  if (give) {
+    card.classList.add('awarded');
+    // Increment score
+    const scoreRef = db.ref(`rooms/${currentRoomCode}/scores/${pid}`);
+    const snap = await scoreRef.once('value');
+    const current = snap.val() || 0;
+    await scoreRef.set(current + 1);
+    toast('✓ Point awarded!');
+  } else {
+    card.classList.remove('awarded');
+    toast('Nope, no point.');
+  }
+  // Disable both buttons
+  card.querySelectorAll('button').forEach(b => b.disabled = true);
+}
+
+// ═══════════════════════════════════════════════
+//  HOST: SCOREBOARD
+// ═══════════════════════════════════════════════
+async function hostShowScoreboard() {
+  document.getElementById('hg-phase-answers').classList.add('hidden');
+  document.getElementById('hg-phase-scoreboard').classList.remove('hidden');
+  await refreshScoreboard('hg-scoreboard-list');
+}
+
+function hostBackToAnswers() {
+  document.getElementById('hg-phase-scoreboard').classList.add('hidden');
+  document.getElementById('hg-phase-answers').classList.remove('hidden');
+}
+
+async function refreshScoreboard(containerId) {
+  const [scoresSnap, playersSnap] = await Promise.all([
+    db.ref(`rooms/${currentRoomCode}/scores`).once('value'),
+    db.ref(`rooms/${currentRoomCode}/players`).once('value')
+  ]);
+  const scores = scoresSnap.val() || {};
+  const players = playersSnap.val() || {};
+
+  const list = document.getElementById(containerId);
+  list.innerHTML = '';
+
+  const sorted = Object.entries(players)
+    .map(([pid, p]) => ({ ...p, pid, score: scores[pid] || 0 }))
+    .sort((a, b) => b.score - a.score);
+
+  sorted.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'score-row';
+    row.innerHTML = `
+      <div class="score-rank">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1)}</div>
+      <div class="score-emoji">${p.emoji}</div>
+      <div class="score-name">${p.name}</div>
+      <div class="score-pts">${p.score} pts</div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  HOST: NEXT ROUND
+// ═══════════════════════════════════════════════
+async function hostNextRound() {
+  currentRoundIndex++;
+  if (currentRoundIndex >= shuffledPhotos.length) {
+    hostEndRounds();
+    return;
+  }
+  await db.ref(`rooms/${currentRoomCode}`).update({
+    phase: 'answering',
+    currentRound: currentRoundIndex
+  });
+  loadHostRound();
+
+  // Re-listen for answers for new round
+  gameListeners.forEach(({ref, handler}) => ref.off('value', handler));
+  gameListeners = [];
+  listenForAnswers();
+
+  document.getElementById('hg-phase-answers').classList.add('hidden');
+  document.getElementById('hg-phase-scoreboard').classList.add('hidden');
+  document.getElementById('hg-phase-photo').style.display = '';
+}
+
+// ═══════════════════════════════════════════════
+//  HOST: FINAL SCORES
+// ═══════════════════════════════════════════════
+async function hostEndRounds() {
+  await db.ref(`rooms/${currentRoomCode}`).update({ phase: 'final', status: 'done' });
+  document.getElementById('hg-phase-answers').classList.add('hidden');
+  document.getElementById('hg-phase-scoreboard').classList.add('hidden');
+  document.getElementById('hg-phase-photo').style.display = 'none';
+  document.getElementById('hg-phase-final').classList.remove('hidden');
+  await refreshScoreboard('hg-final-list');
+}
+
+// ═══════════════════════════════════════════════
+//  HOST: END GAME
+// ═══════════════════════════════════════════════
+async function endGame() {
+  if (currentRoomCode) {
+    await db.ref(`rooms/${currentRoomCode}`).update({ status: 'ended', phase: 'ended' });
+  }
+  gameListeners.forEach(({ref, handler}) => ref.off('value', handler));
+  gameListeners = [];
+  currentRoomCode = null;
+  isHost = false;
+  showScreen('screen-home');
+}
+
+// ═══════════════════════════════════════════════
+//  PLAYER: JOIN GAME
+// ═══════════════════════════════════════════════
+async function joinGame() {
+  const code = document.getElementById('pj-code').value.trim().toUpperCase();
+  const name = document.getElementById('pj-name').value.trim();
+
+  if (!code || code.length !== 6) { toast('Enter a valid 6-character room code'); return; }
+  if (!name) { toast('Enter your name'); return; }
+
+  // Check room exists
+  const snap = await db.ref(`rooms/${code}`).once('value');
+  const room = snap.val();
+  if (!room) { toast('Room not found!'); return; }
+  if (room.status === 'ended') { toast('That game has ended'); return; }
+
+  currentRoomCode = code;
+  playerName = name;
+  playerId = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
+
+  await db.ref(`rooms/${code}/players/${playerId}`).set({
+    name, emoji: playerEmoji, score: 0, joinedAt: Date.now()
+  });
+
+  // Remove player on disconnect
+  db.ref(`rooms/${code}/players/${playerId}`).onDisconnect().remove();
+
+  document.getElementById('pw-emoji').textContent = playerEmoji;
+  document.getElementById('pw-room').textContent = `Room: ${code}`;
+  document.getElementById('pg-player-name').textContent = `${playerEmoji} ${name}`;
+
+  showScreen('screen-player-waiting');
+  playerListenForGameStart(room);
+}
+
+// ═══════════════════════════════════════════════
+//  PLAYER: LISTEN FOR GAME START & PHASE CHANGES
+// ═══════════════════════════════════════════════
+function playerListenForGameStart(initialRoom) {
+  if (initialRoom.status === 'playing') {
+    loadPlayerRound(initialRoom);
+  }
+
+  const ref = db.ref(`rooms/${currentRoomCode}`);
+  const handler = ref.on('value', snap => {
+    const room = snap.val();
+    if (!room) return;
+
+    if (room.status === 'playing' || room.status === 'done') {
+      loadPlayerRound(room);
+    }
+    if (room.status === 'ended') {
+      showScreen('screen-home');
+    }
+  });
+  gameListeners.push({ ref, handler });
+}
+
+let lastPlayerRound = -1;
+let lastPlayerPhase = '';
+
+function loadPlayerRound(room) {
+  const round = room.currentRound || 0;
+  const phase = room.phase;
+  const photos = room.photos || [];
+
+  if (phase === 'final' || room.status === 'done') {
+    showPlayerFinal(room);
+    return;
+  }
+
+  showScreen('screen-player-game');
+  document.getElementById('pg-round-badge').textContent = `Round ${round + 1}/${photos.length}`;
+
+  if (phase === 'answering' && (round !== lastPlayerRound)) {
+    lastPlayerRound = round;
+    lastPlayerPhase = phase;
+    const photo = photos[round];
+    document.getElementById('pg-photo').src = photo.url;
+    document.getElementById('pg-answer-input').value = '';
+    document.getElementById('pg-answer-input').disabled = false;
+    document.getElementById('pg-submit-btn').disabled = false;
+
+    document.getElementById('pg-phase-answer').style.display = '';
+    document.getElementById('pg-phase-answer').classList.remove('hidden');
+    document.getElementById('pg-submitted-msg').classList.add('hidden');
+    document.getElementById('pg-submit-btn').classList.remove('hidden');
+    document.getElementById('pg-phase-results').classList.add('hidden');
+    document.getElementById('pg-phase-final').classList.add('hidden');
+  }
+
+  if (phase === 'reveal' && lastPlayerPhase !== 'reveal') {
+    lastPlayerPhase = 'reveal';
+    showPlayerResults(room, round);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  PLAYER: SUBMIT ANSWER
+// ═══════════════════════════════════════════════
+async function playerSubmitAnswer() {
+  const text = document.getElementById('pg-answer-input').value.trim();
+  if (!text) { toast('Write an answer first!'); return; }
+
+  await db.ref(`rooms/${currentRoomCode}/answers/${lastPlayerRound}/${playerId}`).set({
+    text, submittedAt: Date.now()
+  });
+
+  document.getElementById('pg-answer-input').disabled = true;
+  document.getElementById('pg-submit-btn').classList.add('hidden');
+  document.getElementById('pg-submitted-msg').classList.remove('hidden');
+  toast('✓ Answer submitted!');
+}
+
+// ═══════════════════════════════════════════════
+//  PLAYER: SHOW RESULTS
+// ═══════════════════════════════════════════════
+async function showPlayerResults(room, round) {
+  const answersSnap = await db.ref(`rooms/${currentRoomCode}/answers/${round}`).once('value');
+  const playersSnap = await db.ref(`rooms/${currentRoomCode}/players`).once('value');
+  const answers = answersSnap.val() || {};
+  const players = playersSnap.val() || {};
+
+  const list = document.getElementById('pg-results-list');
+  list.innerHTML = '';
+
+  Object.entries(answers).forEach(([pid, ans]) => {
+    const p = players[pid] || { name: 'Unknown', emoji: '❓' };
+    const isMe = pid === playerId;
+    const card = document.createElement('div');
+    card.className = 'result-card' + (isMe ? ' correct' : '');
+    card.innerHTML = `
+      <div style="font-size:1.4rem;margin-bottom:6px;">${p.emoji} ${p.name}${isMe ? ' (you)' : ''}</div>
+      <div style="font-size:1.05rem;">${ans.text || '<em>No answer</em>'}</div>
+    `;
+    list.appendChild(card);
+  });
+
+  document.getElementById('pg-phase-answer').style.display = 'none';
+  document.getElementById('pg-phase-results').classList.remove('hidden');
+}
+
+// ═══════════════════════════════════════════════
+//  PLAYER: FINAL SCREEN
+// ═══════════════════════════════════════════════
+async function showPlayerFinal(room) {
+  const [scoresSnap, playersSnap] = await Promise.all([
+    db.ref(`rooms/${currentRoomCode}/scores`).once('value'),
+    db.ref(`rooms/${currentRoomCode}/players`).once('value')
+  ]);
+  const scores = scoresSnap.val() || {};
+  const players = playersSnap.val() || {};
+
+  const list = document.getElementById('pg-final-list');
+  list.innerHTML = '';
+
+  const sorted = Object.entries(players)
+    .map(([pid, p]) => ({ ...p, pid, score: scores[pid] || 0 }))
+    .sort((a, b) => b.score - a.score);
+
+  sorted.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'score-row';
+    const isMe = p.pid === playerId;
+    row.style.border = isMe ? '1px solid var(--accent)' : '';
+    row.innerHTML = `
+      <div class="score-rank">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1)}</div>
+      <div class="score-emoji">${p.emoji}</div>
+      <div class="score-name">${p.name}${isMe ? ' 👈' : ''}</div>
+      <div class="score-pts">${p.score} pts</div>
+    `;
+    list.appendChild(row);
+  });
+
+  document.getElementById('pg-phase-answer').style.display = 'none';
+  document.getElementById('pg-phase-results').classList.add('hidden');
+  document.getElementById('pg-phase-final').classList.remove('hidden');
+  showScreen('screen-player-game');
+}
+
+// ═══════════════════════════════════════════════
+//  AUTO-JOIN FROM QR URL
+// ═══════════════════════════════════════════════
+window.addEventListener('load', () => {
+  const params = new URLSearchParams(window.location.search);
+  const joinCode = params.get('join');
+  if (joinCode) {
+    document.getElementById('pj-code').value = joinCode.toUpperCase();
+    showScreen('screen-player-join');
+  }
+
+  // Also load folders if on host setup
+  loadFolders();
+});
+</script>
+</body>
+</html>
